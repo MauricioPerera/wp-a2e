@@ -1,0 +1,10 @@
+.a2e-step { background: #fff; border: 1px solid #c3c4c7; padding: 0 16px 16px; margin: 12px 0; max-width: 800px; }
+.a2e-step-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 0 0; }
+.a2e-step-header strong { font-size: 14px; }
+.a2e-step-fields .form-table th { width: 80px; padding: 8px 0; }
+.a2e-step-fields .form-table td { padding: 8px 0; }
+.a2e-step-fields textarea { font-family: monospace; font-size: 13px; }
+.a2e-remove-step { color: #d63638 !important; border-color: #d63638 !important; font-weight: bold; }
+.a2e-add-step { margin: 8px 0 24px !important; }
+.a2e-empty { padding: 40px; text-align: center; background: #fff; border: 1px solid #c3c4c7; margin-top: 16px; }
+.a2e-form h2 { margin-top: 24px; }
