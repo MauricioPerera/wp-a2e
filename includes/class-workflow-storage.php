@@ -58,12 +58,30 @@ class A2E_Workflow_Storage {
 			$sanitized_steps[] = array_merge( array( 'id' => $step_id, 'type' => $step_type ), $step );
 		}
 
-		return array(
+		$result = array(
 			'id'          => $id,
 			'name'        => $name,
 			'description' => sanitize_text_field( $input['description'] ?? '' ),
 			'steps'       => $sanitized_steps,
 			'enabled'     => ! empty( $input['enabled'] ),
 		);
+
+		// Ability registration fields
+		$result['register_as_ability'] = ! empty( $input['register_as_ability'] );
+		if ( $result['register_as_ability'] ) {
+			$ab_name = sanitize_text_field( $input['ability_name'] ?? '' );
+			$result['ability_name']          = $ab_name ?: "a2e/{$id}";
+			$result['ability_return_step']   = sanitize_key( $input['ability_return_step'] ?? '' );
+			$result['ability_category']      = 'orchestration';
+			$result['ability_permission']    = 'edit_posts';
+			$result['ability_show_in_rest']  = true;
+			$result['ability_annotations']   = array(
+				'readonly'    => false,
+				'destructive' => false,
+				'idempotent'  => false,
+			);
+		}
+
+		return $result;
 	}
 }

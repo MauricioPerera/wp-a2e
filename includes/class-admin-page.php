@@ -77,6 +77,9 @@ class A2E_Admin_Page {
 		$name        = $wf['name'] ?? '';
 		$description = $wf['description'] ?? '';
 		$steps       = $wf['steps'] ?? array();
+		$reg_ability = ! empty( $wf['register_as_ability'] );
+		$ab_name     = $wf['ability_name'] ?? '';
+		$ab_return   = $wf['ability_return_step'] ?? '';
 
 		if ( empty( $steps ) ) {
 			$steps = array( array( 'id' => 'step_0', 'type' => 'ExecuteAbility', 'ability' => '', 'input' => array() ) );
@@ -155,6 +158,29 @@ class A2E_Admin_Page {
 			</div>
 
 			<button type="button" class="button a2e-add-step">+ Add Step</button>
+
+			<h2>Register as Ability</h2>
+			<p class="description">Expose this workflow as a standalone ability. AI agents will see it as a single action, not a multi-step workflow.</p>
+			<table class="form-table">
+				<tr>
+					<th>Enable</th>
+					<td><label><input type="checkbox" name="register_as_ability" <?php checked( $reg_ability ); ?>> Register this workflow as its own ability</label></td>
+				</tr>
+				<tr>
+					<th><label for="a2e_ab_name">Ability Name</label></th>
+					<td>
+						<input type="text" id="a2e_ab_name" name="ability_name" value="<?php echo esc_attr( $ab_name ); ?>" class="regular-text" placeholder="my-site/daily-report">
+						<p class="description">Format: <code>namespace/ability-name</code>. Leave empty to auto-generate as <code>a2e/{workflow-id}</code>.</p>
+					</td>
+				</tr>
+				<tr>
+					<th><label for="a2e_ab_return">Return Step</label></th>
+					<td>
+						<input type="text" id="a2e_ab_return" name="ability_return_step" value="<?php echo esc_attr( $ab_return ); ?>" class="regular-text" placeholder="last step">
+						<p class="description">Step ID whose result becomes the ability's output. Leave empty to return the last step's result.</p>
+					</td>
+				</tr>
+			</table>
 
 			<?php submit_button( $is_edit ? 'Update Workflow' : 'Create Workflow' ); ?>
 		</form>
