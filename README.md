@@ -6,18 +6,20 @@ The GPL alternative to n8n. No external dependencies, no restrictive licenses.
 
 **No core modifications.** Pure plugin, GPL-2.0.
 
-## The Stack
+## The Complete Stack
 
 ```
 Connectors (vault)  →  Abilities (nodes)  →  A2E (workflows)
-credentials            individual actions     chains of actions
+      ↕                      ↕                      ↕
+  AES-256-CBC          6 types + ACL          9 ops + log
+  AI + generic         REST + MCP            register as ability
 ```
 
 | Layer | Plugin | What it does |
 |-------|--------|-------------|
 | Credentials | WP Connector Factory | Encrypted vault (AES-256-CBC), AI + generic connectors |
-| Nodes | WP Ability Factory | 6 ability types: AI, API, WP, Function, Hook, Cron |
-| Orchestration | **WP A2E** | Sequential workflow execution with data store |
+| Nodes | WP Ability Factory | 6 ability types: AI, API, WP, Function, Hook, Cron. MCP exposure control. App-password ACL. |
+| Orchestration | **WP A2E** | Sequential workflow execution with data store, execution log, register-as-ability |
 
 ## Requirements
 
@@ -137,6 +139,72 @@ Values starting with `/` are resolved from the data store at execution time:
 | `/step_id.length` | Count of array result |
 | `plain value` | Passed as-is (no resolution) |
 
+## Execution Log
+
+Every workflow execution is recorded in a custom database table (`wp_a2e_executions`) for auditing, debugging, and analytics.
+
+### Log Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | bigint | Auto-increment primary key |
+| `workflow_id` | varchar | Workflow slug/ID |
+| `name` | varchar | Workflow display name |
+| `trigger_source` | varchar | How it was triggered: `rest`, `ability`, `cli`, `manual` |
+| `user_id` | bigint | WordPress user who initiated the execution |
+| `status` | varchar | `completed` or `failed` |
+| `steps_total` | int | Total steps in the workflow |
+| `steps_run` | int | Steps actually executed (may differ on error) |
+| `duration_ms` | int | Wall-clock execution time in milliseconds |
+| `data_store` | longtext | Full data-store snapshot at completion (JSON) |
+| `errors` | longtext | Error details if any (JSON) |
+| `created_at` | datetime | When execution started |
+| `updated_at` | datetime | When execution finished |
+
+### REST Endpoints for Execution Log
+
+```
+GET /wp-a2e/v1/executions           List executions + aggregate stats
+GET /wp-a2e/v1/executions/{id}      Single execution detail
+```
+
+The list endpoint returns both the execution rows and an aggregate stats object:
+
+```json
+{
+  "executions": [ ... ],
+  "stats": {
+    "total": 142,
+    "completed": 138,
+    "failed": 4,
+    "avg_ms": 1230,
+    "today": 17
+  }
+}
+```
+
+### Purge
+
+Old execution records can be purged programmatically:
+
+```php
+WP_A2E_Execution_Log::purge_older_than( 30 ); // days
+```
+
+## Register Workflow as Ability
+
+Any saved workflow can be published as a WordPress ability, making it callable by other plugins, REST clients, and MCP-connected agents.
+
+In the workflow editor:
+
+1. Check **Register as Ability**
+2. Set an **Ability Name** (e.g. `a2e/my-pipeline`)
+3. Choose a **Return Step** — the step whose output becomes the ability's return value
+
+All workflow-registered abilities have `meta.mcp.public = true` by default, so they are automatically discoverable by MCP agents.
+
+When executed as an ability, the workflow receives the ability input as its initial data store and returns the selected step's result.
+
 ## REST API
 
 ```
@@ -147,6 +215,8 @@ GET    /wp-a2e/v1/workflows/{id}                  Get workflow definition
 DELETE /wp-a2e/v1/workflows/{id}                  Delete workflow
 POST   /wp-a2e/v1/workflows/{id}/execute          Execute saved workflow
 POST   /wp-a2e/v1/execute                         Execute inline workflow (JSON body)
+GET    /wp-a2e/v1/executions                      List executions + stats
+GET    /wp-a2e/v1/executions/{id}                 Single execution detail
 ```
 
 ### Execute a saved workflow
@@ -167,12 +237,14 @@ curl -X POST http://localhost/wp7/index.php?rest_route=/wp-a2e/v1/execute \
 
 ## MCP Integration
 
-A2E registers two abilities in the WordPress Abilities API:
+A2E registers two built-in abilities in the WordPress Abilities API:
 
 | Ability | Description |
 |---------|-------------|
 | `a2e/execute-workflow` | Execute a saved workflow by ID |
 | `a2e/list-workflows` | List all available workflows |
+
+Additionally, any workflow with **Register as Ability** enabled becomes its own MCP-discoverable ability (see above).
 
 Any MCP-connected AI agent can discover and execute workflows:
 
@@ -190,8 +262,9 @@ wp-a2e/
 │   ├── class-path-resolver.php     /step_id.field resolution engine
 │   ├── class-executor.php          Sequential step executor with error handling
 │   ├── class-workflow-storage.php  CRUD for workflow definitions (wp_options)
-│   ├── class-rest-api.php          REST endpoints for CRUD and execution
-│   ├── class-abilities.php         Registers a2e/* abilities for MCP discovery
+│   ├── class-execution-log.php     Custom DB table for execution history + purge
+│   ├── class-rest-api.php          REST endpoints for CRUD, execution, and log
+│   ├── class-abilities.php         Registers a2e/* abilities + workflow-as-ability
 │   ├── class-admin-page.php        Visual workflow builder
 │   └── operations/
 │       ├── class-execute-ability.php
@@ -213,6 +286,7 @@ wp-a2e/
 - Add `"continue_on_error": true` to a step to continue on failure
 - Error details stored in the data store under the step's ID
 - Execution result includes `errors` array with step ID, type, code, and message
+- All errors are persisted in the execution log for post-mortem debugging
 
 ## License
 
