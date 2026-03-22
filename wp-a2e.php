@@ -33,6 +33,7 @@ require_once A2E_DIR . 'includes/operations/class-wait.php';
 require_once A2E_DIR . 'includes/operations/class-merge-data.php';
 
 // Engine
+require_once A2E_DIR . 'includes/class-execution-log.php';
 require_once A2E_DIR . 'includes/class-executor.php';
 require_once A2E_DIR . 'includes/class-rest-api.php';
 require_once A2E_DIR . 'includes/class-abilities.php';
@@ -74,3 +75,7 @@ add_action( 'plugins_loaded', function () {
 function a2e(): WP_A2E {
 	return WP_A2E::instance();
 }
+
+register_activation_hook( __FILE__, function () {
+	A2E_Execution_Log::create_table();
+});

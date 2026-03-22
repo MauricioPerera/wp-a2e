@@ -14,11 +14,39 @@ class A2E_Executor {
 	 * @param array|null $initial Optional initial data to seed the store.
 	 * @return array Execution result with store contents and metadata.
 	 */
+	/**
+	 * Workflow ID and name for logging. Set before calling run().
+	 */
+	private string $log_workflow_id   = '';
+	private string $log_workflow_name = '';
+	private string $log_trigger       = 'manual';
+
+	/**
+	 * Set logging context before execution.
+	 */
+	public function set_context( string $workflow_id, string $workflow_name = '', string $trigger = 'manual' ): self {
+		$this->log_workflow_id   = $workflow_id;
+		$this->log_workflow_name = $workflow_name;
+		$this->log_trigger       = $trigger;
+		return $this;
+	}
+
 	public function run( array $steps, ?array $initial = null ): array {
 		$store    = new A2E_Data_Store();
 		$start    = microtime( true );
 		$errors   = array();
 		$executed = 0;
+
+		// Start log entry
+		$log_id = 0;
+		if ( $this->log_workflow_id ) {
+			$log_id = A2E_Execution_Log::start(
+				$this->log_workflow_id,
+				$this->log_workflow_name,
+				$this->log_trigger,
+				count( $steps )
+			);
+		}
 
 		// Seed store with initial data
 		if ( $initial ) {
@@ -29,7 +57,7 @@ class A2E_Executor {
 
 		$result = $this->execute_steps( $steps, $store, $errors, $executed );
 
-		return array(
+		$output = array(
 			'success'     => empty( $errors ),
 			'store'       => $store->all(),
 			'steps_total' => count( $steps ),
@@ -38,6 +66,19 @@ class A2E_Executor {
 			'duration_ms' => round( ( microtime( true ) - $start ) * 1000, 2 ),
 			'last_result' => $result,
 		);
+
+		// Finish log entry
+		if ( $log_id > 0 ) {
+			A2E_Execution_Log::finish( $log_id, $output );
+			$output['log_id'] = $log_id;
+		}
+
+		// Reset context
+		$this->log_workflow_id   = '';
+		$this->log_workflow_name = '';
+		$this->log_trigger       = 'manual';
+
+		return $output;
 	}
 
 	/**

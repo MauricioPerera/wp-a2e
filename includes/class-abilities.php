@@ -62,7 +62,9 @@ class A2E_Abilities {
 					return new WP_Error( 'not_found', "Workflow '{$wf_id}' not found." );
 				}
 				$initial = is_array( $input ) ? ( $input['input'] ?? null ) : null;
-				return $executor->run( $wf['steps'], $initial );
+				return $executor
+					->set_context( $wf_id, $wf['name'] ?? $wf_id, 'ability' )
+					->run( $wf['steps'], $initial );
 			},
 			'permission_callback' => fn() => current_user_can( 'edit_posts' ),
 			'meta' => array(
@@ -144,8 +146,10 @@ class A2E_Abilities {
 				'category'            => $category,
 				'input_schema'        => $input_schema ?: array(),
 				'output_schema'       => $output_schema ?: array(),
-				'execute_callback'    => function ( $input = null ) use ( $executor, $wf, $return_step ) {
-					$result = $executor->run( $wf['steps'], is_array( $input ) ? $input : null );
+				'execute_callback'    => function ( $input = null ) use ( $executor, $wf, $return_step, $id ) {
+					$result = $executor
+						->set_context( $id, $wf['name'] ?? $id, 'ability' )
+						->run( $wf['steps'], is_array( $input ) ? $input : null );
 
 					if ( ! $result['success'] ) {
 						$err = $result['errors'][0] ?? array();

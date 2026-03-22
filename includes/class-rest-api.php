@@ -52,6 +52,18 @@ class A2E_REST_API {
 			'permission_callback' => fn() => current_user_can( 'edit_posts' ),
 		));
 
+		register_rest_route( self::NS, '/executions', array(
+			'methods'             => 'GET',
+			'callback'            => array( $this, 'list_executions' ),
+			'permission_callback' => fn() => current_user_can( 'manage_options' ),
+		));
+
+		register_rest_route( self::NS, '/executions/(?P<log_id>\d+)', array(
+			'methods'             => 'GET',
+			'callback'            => array( $this, 'get_execution' ),
+			'permission_callback' => fn() => current_user_can( 'manage_options' ),
+		));
+
 		register_rest_route( self::NS, '/execute', array(
 			'methods'             => 'POST',
 			'callback'            => array( $this, 'execute_inline' ),
@@ -99,7 +111,9 @@ class A2E_REST_API {
 		}
 
 		$input  = $request->get_json_params()['input'] ?? null;
-		$result = $this->executor->run( $wf['steps'], $input );
+		$result = $this->executor
+			->set_context( $request['id'], $wf['name'] ?? $request['id'], 'rest' )
+			->run( $wf['steps'], $input );
 
 		return new WP_REST_Response( $result );
 	}
@@ -113,7 +127,30 @@ class A2E_REST_API {
 			return new WP_Error( 'missing_steps', 'No steps provided.', array( 'status' => 400 ) );
 		}
 
-		$result = $this->executor->run( $steps, $input );
+		$result = $this->executor
+			->set_context( 'inline', 'Inline Execution', 'rest' )
+			->run( $steps, $input );
 		return new WP_REST_Response( $result );
+	}
+
+	public function list_executions( WP_REST_Request $request ): WP_REST_Response {
+		$workflow_id = $request->get_param( 'workflow' ) ?? '';
+		$limit       = min( (int) ( $request->get_param( 'limit' ) ?? 50 ), 200 );
+
+		$rows  = A2E_Execution_Log::get_recent( $limit, $workflow_id );
+		$stats = A2E_Execution_Log::get_stats();
+
+		return new WP_REST_Response( array(
+			'executions' => $rows,
+			'stats'      => $stats,
+		));
+	}
+
+	public function get_execution( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$entry = A2E_Execution_Log::get( (int) $request['log_id'] );
+		if ( ! $entry ) {
+			return new WP_Error( 'not_found', 'Execution not found.', array( 'status' => 404 ) );
+		}
+		return new WP_REST_Response( $entry );
 	}
 }
