@@ -70,6 +70,7 @@ class A2E_Abilities {
 			'meta' => array(
 				'annotations'  => array( 'readonly' => false, 'destructive' => false, 'idempotent' => false ),
 				'show_in_rest' => true,
+				'mcp'          => array( 'public' => true ),
 			),
 		));
 
@@ -108,6 +109,7 @@ class A2E_Abilities {
 			'meta' => array(
 				'annotations'  => array( 'readonly' => true, 'destructive' => false, 'idempotent' => true ),
 				'show_in_rest' => true,
+				'mcp'          => array( 'public' => true ),
 			),
 		));
 	}
@@ -174,6 +176,7 @@ class A2E_Abilities {
 						'idempotent'  => false,
 					),
 					'show_in_rest' => $wf['ability_show_in_rest'] ?? true,
+					'mcp'          => array( 'public' => $wf['ability_mcp_public'] ?? true ),
 				),
 			));
 		}
